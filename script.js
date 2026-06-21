@@ -1,15 +1,25 @@
+/* ==========================================
+   TASKFLOW FRAMEWORK
+   PART 1 - VIRTUAL DOM & RENDERER
+========================================== */
+
+/* ==========================================
+   TEXT NODE CREATOR
+========================================== */
 
 function createTextElement(text) {
     return {
         type: "TEXT_ELEMENT",
         props: {
-            nodeValue: text,
+            nodeValue: String(text),
             children: []
         }
     };
 }
 
-
+/* ==========================================
+   CREATE ELEMENT
+========================================== */
 
 function createElement(type, props, ...children) {
 
@@ -23,8 +33,8 @@ function createElement(type, props, ...children) {
                 .flat()
                 .filter(child =>
                     child !== null &&
-                    child !== false &&
-                    child !== true
+                    child !== undefined &&
+                    child !== false
                 )
                 .map(child =>
 
@@ -39,12 +49,23 @@ function createElement(type, props, ...children) {
     };
 }
 
+/* ==========================================
+   SHORTHAND
+========================================== */
+
+const h = createElement;
+
+/* ==========================================
+   DOM PROPERTY MANAGEMENT
+========================================== */
 
 function updateProps(
     dom,
     oldProps = {},
     newProps = {}
 ) {
+
+    /* REMOVE OLD EVENTS/ATTRIBUTES */
 
     Object.keys(oldProps).forEach(name => {
 
@@ -75,6 +96,8 @@ function updateProps(
 
     });
 
+    /* ADD NEW */
+
     Object.keys(newProps).forEach(name => {
 
         if (name === "children")
@@ -104,19 +127,22 @@ function updateProps(
 
         else if (name === "className") {
 
-            dom.className = newProps[name];
+            dom.className =
+                newProps[name];
 
         }
 
         else if (name === "value") {
 
-            dom.value = newProps[name];
+            dom.value =
+                newProps[name];
 
         }
 
         else if (name === "checked") {
 
-            dom.checked = newProps[name];
+            dom.checked =
+                newProps[name];
 
         }
 
@@ -133,12 +159,19 @@ function updateProps(
 
 }
 
+/* ==========================================
+   CREATE REAL DOM NODE
+========================================== */
 
 function createDOM(vNode) {
 
     if (!vNode) {
+
         return document.createTextNode("");
+
     }
+
+    /* TEXT NODE */
 
     if (
         vNode.type ===
@@ -150,6 +183,8 @@ function createDOM(vNode) {
         );
 
     }
+
+    /* COMPONENT */
 
     if (
         typeof vNode.type ===
@@ -164,6 +199,8 @@ function createDOM(vNode) {
         );
 
     }
+
+    /* HTML ELEMENT */
 
     const dom =
         document.createElement(
@@ -189,19 +226,27 @@ function createDOM(vNode) {
     return dom;
 }
 
+/* ==========================================
+   ROOT STORAGE
+========================================== */
 
 let rootContainer = null;
 let currentVNode = null;
 
-
+/* ==========================================
+   INITIAL RENDER
+========================================== */
 
 function render(
     vNode,
     container
 ) {
 
-    currentVNode = vNode;
-    rootContainer = container;
+    rootContainer =
+        container;
+
+    currentVNode =
+        vNode;
 
     container.innerHTML = "";
 
@@ -210,38 +255,62 @@ function render(
     );
 }
 
+/* ==========================================
+   FRAMEWORK OBJECT
+========================================== */
 
-
-const MiniReact = {
+const TaskFlow = {
 
     createElement,
     render
 
 };
+/* ==========================================
+   PART 2 - DIFF & RECONCILIATION
+========================================== */
 
-const h =
-    MiniReact.createElement;
+/* ==========================================
+   CHECK IF NODE CHANGED
+========================================== */
 
-function changed(oldVNode, newVNode) {
+function nodeChanged(
+    oldVNode,
+    newVNode
+) {
 
-    return (
-        typeof oldVNode !== typeof newVNode ||
+    if (
+        typeof oldVNode !==
+        typeof newVNode
+    ) {
+        return true;
+    }
 
-        (
-            oldVNode &&
-            newVNode &&
-            oldVNode.type !== newVNode.type
-        ) ||
+    if (
+        oldVNode &&
+        newVNode &&
+        oldVNode.type !==
+        newVNode.type
+    ) {
+        return true;
+    }
 
-        (
-            oldVNode?.type === "TEXT_ELEMENT" &&
-            newVNode?.type === "TEXT_ELEMENT" &&
-            oldVNode.props.nodeValue !==
-            newVNode.props.nodeValue
-        )
-    );
+    if (
+        oldVNode?.type ===
+        "TEXT_ELEMENT" &&
+        newVNode?.type ===
+        "TEXT_ELEMENT" &&
+        oldVNode.props.nodeValue !==
+        newVNode.props.nodeValue
+    ) {
+        return true;
+    }
+
+    return false;
 }
 
+/* ==========================================
+   PATCH PROPERTIES
+========================================== */
 
 function patchProps(
     dom,
@@ -257,6 +326,9 @@ function patchProps(
 
 }
 
+/* ==========================================
+   RECONCILE DOM
+========================================== */
 
 function reconcile(
     parent,
@@ -265,7 +337,7 @@ function reconcile(
     index = 0
 ) {
 
-    const existingDOM =
+    const domNode =
         parent.childNodes[index];
 
     /* CREATE */
@@ -283,10 +355,10 @@ function reconcile(
 
     if (!newVNode) {
 
-        if (existingDOM) {
+        if (domNode) {
 
             parent.removeChild(
-                existingDOM
+                domNode
             );
 
         }
@@ -297,7 +369,7 @@ function reconcile(
     /* REPLACE */
 
     if (
-        changed(
+        nodeChanged(
             oldVNode,
             newVNode
         )
@@ -305,7 +377,7 @@ function reconcile(
 
         parent.replaceChild(
             createDOM(newVNode),
-            existingDOM
+            domNode
         );
 
         return;
@@ -314,7 +386,7 @@ function reconcile(
     /* TEXT NODE */
 
     if (
-        oldVNode.type ===
+        newVNode.type ===
         "TEXT_ELEMENT"
     ) {
 
@@ -323,7 +395,7 @@ function reconcile(
             newVNode.props.nodeValue
         ) {
 
-            existingDOM.nodeValue =
+            domNode.nodeValue =
                 newVNode.props.nodeValue;
 
         }
@@ -331,39 +403,42 @@ function reconcile(
         return;
     }
 
+    /* COMPONENT */
 
     if (
         typeof newVNode.type ===
         "function"
     ) {
 
-        const oldComponent =
+        const oldRendered =
             oldVNode.type(
                 oldVNode.props
             );
 
-        const newComponent =
+        const newRendered =
             newVNode.type(
                 newVNode.props
             );
 
         reconcile(
             parent,
-            oldComponent,
-            newComponent,
+            oldRendered,
+            newRendered,
             index
         );
 
         return;
     }
 
+    /* UPDATE ATTRIBUTES */
 
     patchProps(
-        existingDOM,
+        domNode,
         oldVNode.props,
         newVNode.props
     );
 
+    /* RECONCILE CHILDREN */
 
     const oldChildren =
         oldVNode.props.children || [];
@@ -371,7 +446,7 @@ function reconcile(
     const newChildren =
         newVNode.props.children || [];
 
-    const max =
+    const maxChildren =
         Math.max(
             oldChildren.length,
             newChildren.length
@@ -379,12 +454,12 @@ function reconcile(
 
     for (
         let i = 0;
-        i < max;
+        i < maxChildren;
         i++
     ) {
 
         reconcile(
-            existingDOM,
+            domNode,
             oldChildren[i],
             newChildren[i],
             i
@@ -394,7 +469,9 @@ function reconcile(
 
 }
 
-
+/* ==========================================
+   RE-RENDER APPLICATION
+========================================== */
 
 function rerender(
     newVNode
@@ -412,8 +489,11 @@ function rerender(
 
 }
 
+/* ==========================================
+   APP UPDATE FUNCTION
+========================================== */
 
-function updateApp() {
+function updateApplication() {
 
     if (!rootContainer)
         return;
@@ -425,42 +505,62 @@ function updateApp() {
     );
 
 }
+/* ==========================================
+   PART 3 - HOOKS SYSTEM
+========================================== */
+
+/* ==========================================
+   HOOK STORAGE
+========================================== */
 
 let hooks = [];
 let hookIndex = 0;
 
+/* ==========================================
+   EFFECT STORAGE
+========================================== */
 
+let effectStore = [];
 
-let effectHooks = [];
-
-
+/* ==========================================
+   useState
+========================================== */
 
 function useState(initialValue) {
 
     const currentIndex = hookIndex;
 
-    if (hooks[currentIndex] === undefined) {
+    if (
+        hooks[currentIndex] === undefined
+    ) {
 
-        hooks[currentIndex] = initialValue;
+        hooks[currentIndex] =
+            initialValue;
 
     }
 
-    function setState(value) {
+    function setState(newValue) {
 
-        if (typeof value === "function") {
+        if (
+            typeof newValue ===
+            "function"
+        ) {
 
             hooks[currentIndex] =
-                value(hooks[currentIndex]);
+                newValue(
+                    hooks[currentIndex]
+                );
 
         } else {
 
-            hooks[currentIndex] = value;
+            hooks[currentIndex] =
+                newValue;
 
         }
 
         queueMicrotask(() => {
 
-            updateApp();
+            updateApplication();
 
         });
 
@@ -474,6 +574,10 @@ function useState(initialValue) {
     ];
 }
 
+/* ==========================================
+   useEffect
+========================================== */
+
 function useEffect(
     callback,
     dependencies
@@ -482,20 +586,22 @@ function useEffect(
     const currentIndex =
         hookIndex;
 
-    const previousDeps =
-        effectHooks[currentIndex];
+    const oldDependencies =
+        effectStore[currentIndex];
 
     let hasChanged = true;
 
     if (
-        previousDeps &&
+        oldDependencies &&
         dependencies
     ) {
 
         hasChanged =
             dependencies.some(
-                (dep, index) =>
-                    dep !== previousDeps[index]
+                (dependency, index) =>
+
+                    dependency !==
+                    oldDependencies[index]
             );
 
     }
@@ -508,14 +614,17 @@ function useEffect(
 
         });
 
-        effectHooks[currentIndex] =
+        effectStore[currentIndex] =
             dependencies;
 
     }
 
     hookIndex++;
 }
-/
+
+/* ==========================================
+   RESET HOOK INDEX
+========================================== */
 
 function resetHooks() {
 
@@ -523,8 +632,11 @@ function resetHooks() {
 
 }
 
+/* ==========================================
+   FRAMEWORK UPDATE
+========================================== */
 
-function updateApp() {
+function frameworkUpdate() {
 
     resetHooks();
 
@@ -534,29 +646,45 @@ function updateApp() {
 
 }
 
+/* ==========================================
+   EXPORT HOOKS
+========================================== */
 
-
-MiniReact.useState =
+TaskFlow.useState =
     useState;
 
-MiniReact.useEffect =
+TaskFlow.useEffect =
     useEffect;
 
+/* ==========================================
+   SHORTHANDS
+========================================== */
 
-const {
-    useState: useStateHook,
-    useEffect: useEffectHook
-} = MiniReact;
+const useStateHook =
+    TaskFlow.useState;
+
+const useEffectHook =
+    TaskFlow.useEffect;
+
+/* ==========================================
+   OVERRIDE UPDATE FUNCTION
+========================================== */
+
+updateApplication =
+    frameworkUpdate;
+/* ==========================================
+   PART 4 - TODO APPLICATION
+========================================== */
 
 function App() {
 
     const [tasks, setTasks] = useStateHook(
         JSON.parse(
-            localStorage.getItem("tasks")
+            localStorage.getItem("taskflow_tasks")
         ) || []
     );
 
-    const [input, setInput] =
+    const [inputValue, setInputValue] =
         useStateHook("");
 
     const [filter, setFilter] =
@@ -565,35 +693,65 @@ function App() {
     const [dragIndex, setDragIndex] =
         useStateHook(null);
 
-    
+    /* ======================================
+       SAVE TO LOCAL STORAGE
+    ====================================== */
+
     useEffectHook(() => {
 
         localStorage.setItem(
-            "tasks",
+            "taskflow_tasks",
             JSON.stringify(tasks)
         );
 
     }, [tasks]);
 
-   
+    /* ======================================
+       ADD TASK
+    ====================================== */
 
     function addTask() {
 
-        if (!input.trim()) return;
+        if (!inputValue.trim())
+            return;
+
+        const newTask = {
+            id: Date.now(),
+            text: inputValue,
+            completed: false
+        };
 
         setTasks([
             ...tasks,
-            {
-                id: Date.now(),
-                text: input,
-                completed: false
-            }
+            newTask
         ]);
 
-        setInput("");
+        setInputValue("");
     }
 
-    
+    /* ======================================
+       TOGGLE TASK
+    ====================================== */
+
+    function toggleTask(id) {
+
+        setTasks(
+            tasks.map(task =>
+
+                task.id === id
+                    ? {
+                        ...task,
+                        completed:
+                            !task.completed
+                    }
+                    : task
+            )
+        );
+    }
+
+    /* ======================================
+       DELETE TASK
+    ====================================== */
 
     function deleteTask(id) {
 
@@ -604,24 +762,10 @@ function App() {
         );
     }
 
+    /* ======================================
+       CLEAR COMPLETED
+    ====================================== */
 
-    function toggleTask(id) {
-
-        setTasks(
-            tasks.map(task =>
-
-                task.id === id
-                    ? {
-                        ...task,
-                        completed: !task.completed
-                    }
-                    : task
-
-            )
-        );
-    }
-
-   
     function clearCompleted() {
 
         setTasks(
@@ -631,7 +775,9 @@ function App() {
         );
     }
 
-   
+    /* ======================================
+       FILTER TASKS
+    ====================================== */
 
     const filteredTasks =
         tasks.filter(task => {
@@ -645,6 +791,10 @@ function App() {
             return true;
         });
 
+    /* ======================================
+       DRAG & DROP
+    ====================================== */
+
     function handleDragStart(index) {
 
         setDragIndex(index);
@@ -653,28 +803,36 @@ function App() {
 
     function handleDrop(index) {
 
-        if (dragIndex === null)
+        if (
+            dragIndex === null ||
+            dragIndex === index
+        ) {
             return;
+        }
 
-        const updated =
+        const updatedTasks =
             [...tasks];
 
         const draggedTask =
-            updated.splice(
+            updatedTasks.splice(
                 dragIndex,
                 1
             )[0];
 
-        updated.splice(
+        updatedTasks.splice(
             index,
             0,
             draggedTask
         );
 
-        setTasks(updated);
+        setTasks(updatedTasks);
+
         setDragIndex(null);
     }
 
+    /* ======================================
+       UI
+    ====================================== */
 
     return h(
         "div",
@@ -684,18 +842,18 @@ function App() {
 
         h(
             "div",
-            { className: "app-title" },
+            { className: "header" },
 
             h(
                 "h1",
                 null,
-                "🚀 Custom React Todo"
+                "🚀 TaskFlow Framework"
             ),
 
             h(
                 "p",
                 null,
-                "Built with Virtual DOM, Hooks & Reconciliation"
+                "Virtual DOM • Hooks • Reconciliation"
             )
         ),
 
@@ -708,15 +866,17 @@ function App() {
             h(
                 "input",
                 {
-                    className: "todo-input",
-
-                    value: input,
+                    className:
+                        "todo-input",
 
                     placeholder:
                         "Enter a task...",
 
+                    value:
+                        inputValue,
+
                     onInput: e =>
-                        setInput(
+                        setInputValue(
                             e.target.value
                         )
                 }
@@ -725,9 +885,13 @@ function App() {
             h(
                 "button",
                 {
-                    className: "add-btn",
-                    onClick: addTask
+                    className:
+                        "add-btn",
+
+                    onClick:
+                        addTask
                 },
+
                 "Add Task"
             )
         ),
@@ -749,6 +913,7 @@ function App() {
                     onClick: () =>
                         setFilter("all")
                 },
+
                 "All"
             ),
 
@@ -763,6 +928,7 @@ function App() {
                     onClick: () =>
                         setFilter("active")
                 },
+
                 "Active"
             ),
 
@@ -775,8 +941,11 @@ function App() {
                             : "filter-btn",
 
                     onClick: () =>
-                        setFilter("completed")
+                        setFilter(
+                            "completed"
+                        )
                 },
+
                 "Completed"
             )
         ),
@@ -795,7 +964,8 @@ function App() {
                         className:
                             "empty-state"
                     },
-                    "No tasks found"
+
+                    "No tasks available"
                 )
 
                 : filteredTasks.map(
@@ -804,27 +974,32 @@ function App() {
                         h(
                             "div",
                             {
-                                key: task.id,
+                                key:
+                                    task.id,
 
                                 className:
                                     task.completed
                                         ? "task completed"
                                         : "task",
 
-                                draggable: true,
+                                draggable:
+                                    true,
 
-                                onDragStart: () =>
-                                    handleDragStart(
-                                        index
-                                    ),
+                                onDragStart:
+                                    () =>
+                                        handleDragStart(
+                                            index
+                                        ),
 
-                                onDragOver: e =>
-                                    e.preventDefault(),
+                                onDragOver:
+                                    e =>
+                                        e.preventDefault(),
 
-                                onDrop: () =>
-                                    handleDrop(
-                                        index
-                                    )
+                                onDrop:
+                                    () =>
+                                        handleDrop(
+                                            index
+                                        )
                             },
 
                             h(
@@ -873,6 +1048,7 @@ function App() {
                                                 task.id
                                             )
                                 },
+
                                 "Delete"
                             )
                         )
@@ -885,7 +1061,7 @@ function App() {
             "div",
             {
                 className:
-                    "footer-bar"
+                    "footer"
             },
 
             h(
@@ -896,7 +1072,8 @@ function App() {
                 },
 
                 `${tasks.filter(
-                    t => !t.completed
+                    task =>
+                        !task.completed
                 ).length} task(s) left`
             ),
 
@@ -916,7 +1093,9 @@ function App() {
     );
 }
 
-
+/* ==========================================
+   APPLICATION START
+========================================== */
 
 document.addEventListener(
     "DOMContentLoaded",
@@ -927,7 +1106,8 @@ document.addEventListener(
                 "root"
             );
 
-        rootContainer = root;
+        rootContainer =
+            root;
 
         render(
             App(),
